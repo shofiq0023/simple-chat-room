@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Room</title>
+    <link rel="stylesheet" href="/main.css" type="text/css">
+    <link rel="icon" type="image/x-icon" href="https://freepngimg.com/save/158649-chat-icon-download-free-image/512x512">
+    <script src="../../socket.io/socket.io.js"></script>
+</head>
+<body>
+    <span id="serverUrl" hidden><%= url %></span>
+    <div class="main">
+        <ul id="onlineUsers" class="onlineUserList">
+            <h3>User list:</h3><br>
+        </ul>
+
+        <ul id="messages"></ul>
+
+        <form action="/" method="POST" id="chatForm">
+            <textarea id="msgTxt" class="msg" placeholder="Type your messages here..." autocomplete="off" autofocus="off"></textarea>
+            <button class="btn">Send</button>
+        </form>
+
+    </div>
+
+
+<script defer>
+    const ON_MESSAGE_EVENT = 'chat_message';
+    const ON_ONLINE_EVENT = 'is_online';
+    const ON_OFFLINE_EVENT = 'is_offline';
+    const ON_USERNAME_EVENT = 'username';
+
+    let notificationPermission = Notification.permission;
+    let messageDiv = document.getElementById('messages');
+    let chatForm = document.getElementById('chatForm');
+    let messageText = document.getElementById('msgTxt');
+    let onlineUsersDiv = document.getElementById('onlineUsers');
+    let serverUrl = document.getElementById('serverUrl').innerText;
+
+    // var socket = io.connect('https://simple-chat-ypks.onrender.com');
+    var socket = io.connect(serverUrl);
+
+    var inputUsername = '';
+    while (!inputUsername) {
+        inputUsername = prompt('Your username: ');
+    }
+    socket.emit(ON_USERNAME_EVENT, inputUsername);
+
+    const showNotification = () => {
+        if (document.visibilityState === 'visible') {
+            return;
+        }
+
+        let notificationTitle = 'New Message';
+        let notificationIcon = 'https://freepngimg.com/save/158649-chat-icon-download-free-image/512x512';
+        let notificationBody = "You have a new message";
+        let notification = new Notification(notificationTitle, { notificationBody, notificationIcon });
+
+        notification.onclick = () => {
+            notification.close();
+            window.parent.focus();
+        }
+    }
+
+    const requestAndShowPermision = () => {
+        Notification.requestPermission(() => {
+            if (notificationPermission === "granted" ) {
+                showNotification();
+            }
+        });
+    }
+
+    const getUsernameHtml = (res) => {
+        const generatedHtml = `<li>🔵 <strong>${res.username}</strong> joined the chat!</li>`;
+
+        return generatedHtml;
+    }
+
+    const getOfflineHtml = (res) => {
+        const generatedHtml = `<li>🔴 <string>${res.username}</string> left the chat!</li>`;
+
+        return generatedHtml;
+    }
+
+    const getMessageHtml = (res) => {
+        const generatedHtml =
+        `<li><strong>${res.username}</strong>: <span class='small'>${res.time}</span><hr><div class='pad innerMsg'></div></li>`;
+
+        return generatedHtml;
+    }
+
+    const submitMessage = () => {
+        socket.emit(ON_MESSAGE_EVENT, messageText.value.toString());
+        messageText.value = "";
+    }
+
+    socket.on(ON_ONLINE_EVENT, (res) => {
+        onlineUsersDiv.innerHTML += getUsernameHtml(res);
+    });
+
+    socket.on(ON_OFFLINE_EVENT, (res) => {
+        onlineUsersDiv.innerHTML += getOfflineHtml(res);
+    });
+
+    socket.on(ON_MESSAGE_EVENT, (res) => {
+        messages.innerHTML += getMessageHtml(res);
+        const messageDiv = document.getElementsByClassName('innerMsg');
+        messageDiv[messageDiv.length-1].innerText = res.chatMessage;
+
+        if (notificationPermission === "granted" ) {
+            showNotification();
+        } else if (notificationPermission === "default" ) {
+            requestAndShowPermision();
+        }
+    });
+
+    chatForm.addEventListener('submit', (e) => {
+        if (messageText.value.length === 0) {
+            alert('Enter a message');
+            return;
+        }
+        e.preventDefault();
+
+        submitMessage();
+    });
+
+    messageText.addEventListener('keydown', (e) => {
+        e.preventDefault();
+
+        let currentFocusArea = document.activeElement.tagName.toLowerCase();
+        let pressedKey = e.key.toLowerCase();
+
+        console.log(pressedKey);
+
+        if (pressedKey === 'enter' && currentFocusArea === 'textarea') {
+            submitMessage();
+        }
+    });
+
+
+</script>
+</body>
+</html>
